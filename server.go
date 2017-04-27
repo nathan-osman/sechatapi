@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/nathan-osman/go-sechat"
+	"github.com/sirupsen/logrus"
 )
 
 // Config stores configuration information for the server.
@@ -18,6 +19,7 @@ type Config struct {
 // server.
 type Server struct {
 	stopped chan bool
+	log     *logrus.Entry
 	conn    *sechat.Conn
 	mux     *http.ServeMux
 	l       net.Listener
@@ -40,12 +42,13 @@ func New(cfg *Config) (*Server, error) {
 		}
 		s = &Server{
 			stopped: make(chan bool),
+			log:     logrus.WithField("context", "sechatapi"),
 			conn:    conn,
 			mux:     mux,
 			l:       l,
 		}
 	)
-	mux.HandleFunc("/auth/login", s.handleLogin)
+	mux.HandleFunc("/send", s.handleSend)
 	go func() {
 		defer close(s.stopped)
 		srv.Serve(l)
