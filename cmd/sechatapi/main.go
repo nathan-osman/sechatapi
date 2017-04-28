@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,11 +16,6 @@ func main() {
 	app.Name = "sechatapi"
 	app.Usage = "HTTP api for the Stack Exchange chat network"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:   "file",
-			Usage:  "write address to `FILE`",
-			EnvVar: "FILE",
-		},
 		cli.StringFlag{
 			Name:   "email",
 			Usage:  "use `EMAIL` for authentication",
@@ -39,11 +33,12 @@ func main() {
 		log := logrus.WithField("context", "main")
 		logrus.SetFormatter(&logrus.JSONFormatter{})
 
+		// Basic sanity check to ensure credentials were supplied
 		if len(c.String("email")) == 0 || len(c.String("password")) == 0 {
 			log.Fatal("neither email nor password may be blank")
 		}
 
-		// Generate token
+		// Generate a unique token to secure requests
 		token := uuid.NewV4().String()
 
 		// Start the server
@@ -57,31 +52,8 @@ func main() {
 		}
 		defer s.Close()
 
-		// Display the address and write it to file if requested
-		filename := c.String("file")
-		if len(filename) != 0 {
-			err := func() error {
-				w, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-				if err != nil {
-					return err
-				}
-				defer w.Close()
-				v := map[string]interface{}{
-					"address": s.Addr(),
-					"token":   token,
-				}
-				if err := json.NewEncoder(w).Encode(v); err != nil {
-					return err
-				}
-				return nil
-			}()
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer os.Remove(filename)
-		} else {
-			log.Infof("listening at %s...", s.Addr())
-		}
+		// Use the logger to output the address that the server is listening on
+		log.WithField("address", s.Addr()).Infof("listening on %s", s.Addr())
 
 		// Wait for a signal before shutting down
 		sigChan := make(chan os.Signal)
